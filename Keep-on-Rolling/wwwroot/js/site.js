@@ -1,4 +1,3 @@
-// ─── TRACK METADATA STORE ────────────────────────────────────
 const trackMeta = {
     1: {
         title: 'Xtal', bpm: 125, key: 'F# minor', duration: '4:54',
@@ -62,7 +61,6 @@ const trackMeta = {
     }
 };
 
-// ─── METADATA BACKGROUND ─────────────────────────────────────
 const metaBg = (function () {
     const container = document.getElementById('metaBg');
     if (!container) return { update: () => {} };
@@ -73,21 +71,20 @@ const metaBg = (function () {
 
     const brandEl = document.createElement('div');
     brandEl.className = 'meta-brand';
-    brandEl.textContent = 'EPOKA TWINS';
+    brandEl.textContent = 'MUSIC TWINS';
     container.appendChild(brandEl);
 
     let mouseX = 0, mouseY = 0;
     document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
 
-    // static values — computed once
-    const ua    = navigator.userAgent.toLowerCase();
-    const plat  = (navigator.platform || '').toLowerCase();
-    const lang  = navigator.language || 'unknown';
-    const tz    = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
-    const url   = window.location.href;
-    const dpr   = (window.devicePixelRatio || 1).toFixed(1);
+    const ua = navigator.userAgent.toLowerCase();
+    const plat = (navigator.platform || '').toLowerCase();
+    const lang = navigator.language || 'unknown';
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+    const url = window.location.href;
+    const dpr = (window.devicePixelRatio || 1).toFixed(1);
     const depth = screen.colorDepth || 24;
-    const load  = Math.round(performance.now());
+    const load = Math.round(performance.now());
 
     function render() {
         const ww  = window.innerWidth;
@@ -108,7 +105,6 @@ const metaBg = (function () {
     return { update: () => {} };
 })();
 
-// ─── CLOCK ───────────────────────────────────────────────────
 function updateClock() {
     const el = document.getElementById('system-time');
     if (!el) return;
@@ -118,7 +114,6 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ─── CANVAS WAVEFORM ─────────────────────────────────────────
 (function initCanvas() {
     const canvas = document.getElementById('waveCanvas');
     if (!canvas) return;
@@ -160,7 +155,173 @@ updateClock();
     draw();
 })();
 
-// ─── PLAYER ──────────────────────────────────────────────────
+let spotifyPlayer = null;
+let spotifyDeviceId = null;
+let _sdkReady = false;
+let _spotifyPollTimer = null;
+
+function startSpotifyProgressPolling() {
+    clearInterval(_spotifyPollTimer);
+    _spotifyPollTimer = setInterval(async () => {
+        if (!spotifyPlayer) return;
+        const state = await spotifyPlayer.getCurrentState();
+        if (!state) return;
+        const pos = Math.floor(state.position / 1000);
+        const dur = Math.floor(state.duration / 1000);
+        document.getElementById('currentTime').textContent = formatTime(pos);
+        document.getElementById('totalTime').textContent   = formatTime(dur);
+        document.getElementById('progressFill').style.width = dur > 0 ? (pos / dur * 100) + '%' : '0%';
+        if (state.paused) {
+            playerState.playing = false;
+            document.getElementById('playPauseBtn').textContent = '▶';
+            clearInterval(_spotifyPollTimer);
+        }
+    }, 1000);
+}
+
+window.onSpotifyWebPlaybackSDKReady = async () => {
+    _sdkReady = true;
+    const token = await SpotifyAuth.getValidToken();
+    if (!token) return;
+    initSpotifyPlayer(token);
+};
+
+window.addEventListener('spotify:connected', async (e) => {
+    if (spotifyPlayer) return;
+    if (!_sdkReady) return; // onSpotifyWebPlaybackSDKReady will handle it when SDK loads
+    const token = e.detail?.token || await SpotifyAuth.getValidToken();
+    if (token) initSpotifyPlayer(token);
+});
+
+async function initSpotifyPlayer(token) {
+    spotifyPlayer = new Spotify.Player({
+        name: 'MUSIC TWINS Player',
+        getOAuthToken: async cb => {
+            const t = await SpotifyAuth.getValidToken();
+            cb(t);
+        },
+        volume: 0.8
+    });
+
+    spotifyPlayer.addListener('ready', ({ device_id }) => {
+        spotifyDeviceId = device_id;
+        updateNavAuth();
+    });
+
+    spotifyPlayer.addListener('player_state_changed', state => {
+        if (!state) {
+            console.warn('[Spotify] player_state_changed: null state (device lost)');
+            return;
+        }
+        const track  = state.track_window.current_track;
+        const paused = state.paused;
+        const pos    = Math.floor(state.position / 1000);
+        const dur    = Math.floor(state.duration / 1000);
+
+        if (paused) {
+            console.warn('[Spotify] paused at', pos + 's /', dur + 's — disallows:', state.disallows);
+        }
+
+        document.getElementById('playerTrackName').textContent   = track.name;
+        document.getElementById('playerTrackArtist').textContent = track.artists.map(a => a.name).join(', ');
+        document.getElementById('totalTime').textContent         = formatTime(dur);
+        document.getElementById('currentTime').textContent       = formatTime(pos);
+        document.getElementById('playPauseBtn').textContent      = paused ? '▶' : '⏸';
+        document.getElementById('progressFill').style.width      = dur > 0 ? (pos / dur * 100) + '%' : '0%';
+
+        playerState.playing = !paused;
+
+        if (!paused) {
+            startSpotifyProgressPolling();
+        } else {
+            clearInterval(_spotifyPollTimer);
+        }
+    });
+
+    spotifyPlayer.addListener('not_ready', ({ device_id }) => {
+        console.warn('Spotify device went offline:', device_id);
+        spotifyDeviceId = null;
+        clearInterval(_spotifyPollTimer);
+    });
+    spotifyPlayer.addListener('initialization_error', ({ message }) => console.error('init error:', message));
+    spotifyPlayer.addListener('authentication_error', ({ message }) => { console.error('auth error:', message); SpotifyAuth.clear(); updateNavAuth(); });
+    spotifyPlayer.addListener('account_error',        ({ message }) => { console.error('account error:', message); alert('Spotify Premium required: ' + message); });
+
+    await spotifyPlayer.connect();
+}
+
+async function spotifyPlayTrack(spotifyId, trackName, artist) {
+    const token = await SpotifyAuth.getValidToken();
+    if (!token || !spotifyDeviceId) {
+        alert('Connect Spotify first using the [ CONNECT SPOTIFY ] button.');
+        return;
+    }
+
+    if (trackName) {
+        document.getElementById('playerTrackName').textContent   = trackName;
+        document.getElementById('playerTrackArtist').textContent = artist || '';
+        document.getElementById('playPauseBtn').textContent      = '⏸';
+        document.getElementById('currentTime').textContent       = '0:00';
+        document.getElementById('progressFill').style.width      = '0%';
+        playerState.playing = true;
+    }
+
+    await fetch('https://api.spotify.com/v1/me/player', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_ids: [spotifyDeviceId], play: false })
+    });
+    await new Promise(r => setTimeout(r, 500));
+
+    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: [`spotify:track:${spotifyId}`], position_ms: 0 })
+    });
+
+    if (res.ok || res.status === 204) {
+        startSpotifyProgressPolling();
+    }
+}
+
+function spotifyPlayTrackFromCard(btn) {
+    const card = btn.closest('[data-spotifyid]');
+    if (!card) return;
+    spotifyPlayTrack(card.dataset.spotifyid, card.dataset.trackname, card.dataset.artist);
+}
+
+async function spotifyToggle() {
+    if (spotifyPlayer) await spotifyPlayer.togglePlay();
+}
+
+async function spotifyNext() {
+    if (spotifyPlayer) await spotifyPlayer.nextTrack();
+}
+
+async function spotifyPrev() {
+    if (spotifyPlayer) await spotifyPlayer.previousTrack();
+}
+
+async function spotifySeek(e) {
+    if (!spotifyPlayer) return;
+    const wrap = document.getElementById('progressWrap');
+    const rect = wrap.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const state = await spotifyPlayer.getCurrentState();
+    if (state) await spotifyPlayer.seek(Math.floor(pct * state.duration));
+}
+
+async function spotifySetVolume(v) {
+    if (spotifyPlayer) await spotifyPlayer.setVolume(parseFloat(v));
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (SpotifyAuth.isConnected() && typeof Spotify !== 'undefined') {
+        const token = await SpotifyAuth.getValidToken();
+        if (token) initSpotifyPlayer(token);
+    }
+});
+
 const playerState = {
     playing: false,
     currentId: null,
@@ -229,11 +390,11 @@ function startTimer() {
 }
 
 function togglePlay() {
+    if (spotifyDeviceId) { spotifyToggle(); return; }
     if (!playerState.currentId) return;
     playerState.playing = !playerState.playing;
     const btn = document.getElementById('playPauseBtn');
     btn.textContent = playerState.playing ? '⏸' : '▶';
-
     const active = document.querySelector('.track-card.active');
     if (active) {
         if (playerState.playing) active.classList.add('playing');
@@ -242,6 +403,7 @@ function togglePlay() {
 }
 
 function nextTrack() {
+    if (spotifyDeviceId) { spotifyNext(); return; }
     const cards = getAllCards().filter(c => !c.classList.contains('hidden'));
     const idx   = cards.findIndex(c => c.dataset.id === String(playerState.currentId));
     const next  = cards[(idx + 1) % cards.length];
@@ -249,6 +411,7 @@ function nextTrack() {
 }
 
 function prevTrack() {
+    if (spotifyDeviceId) { spotifyPrev(); return; }
     const cards = getAllCards().filter(c => !c.classList.contains('hidden'));
     const idx   = cards.findIndex(c => c.dataset.id === String(playerState.currentId));
     const prev  = cards[(idx - 1 + cards.length) % cards.length];
@@ -256,6 +419,7 @@ function prevTrack() {
 }
 
 function seekTo(e) {
+    if (spotifyDeviceId) { spotifySeek(e); return; }
     const wrap = document.getElementById('progressWrap');
     const rect = wrap.getBoundingClientRect();
     const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -266,6 +430,7 @@ function seekTo(e) {
 
 function setVolume(v) {
     playerState.volume = parseFloat(v);
+    if (spotifyDeviceId) spotifySetVolume(v);
 }
 
 function playAll() {
@@ -280,7 +445,6 @@ function shuffleTracks() {
     loadTrack(pick);
 }
 
-// ─── FILTER ───────────────────────────────────────────────────
 document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -293,14 +457,12 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     });
 });
 
-// ─── PLAY BUTTON ON CARD ──────────────────────────────────────
 function handlePlay(e, btn) {
     e.stopPropagation();
     const card = btn.closest('.track-card');
     loadTrack(card);
 }
 
-// ─── COMMENTS ────────────────────────────────────────────────
 let activeCommentTrackId = null;
 
 const sampleComments = {
@@ -319,51 +481,67 @@ const sampleComments = {
 
 function handleComments(e, trackId, trackTitle) {
     e.stopPropagation();
-    activeCommentTrackId = trackId;
+    activeCommentTrackId = String(trackId);
     document.getElementById('commentsTitle').textContent = `// COMMENTS :: ${trackTitle.toUpperCase()}`;
-    renderComments(trackId);
+    loadComments(activeCommentTrackId);
     document.getElementById('commentsPanel').classList.add('open');
 }
 
-function renderComments(trackId) {
+async function loadComments(trackId) {
     const list = document.getElementById('commentsList');
-    const comments = sampleComments[trackId] || [];
-    list.innerHTML = comments.length
-        ? comments.map(c => `
-            <div class="comment">
-                <div class="comment-meta">
-                    <span class="comment-user">${escHtml(c.user)}</span>
-                    <span class="comment-time">${escHtml(c.time)}</span>
-                </div>
-                <p class="comment-text">${escHtml(c.text)}</p>
-            </div>`).join('')
-        : '<p style="color:var(--text-dim);font-size:0.7rem">// NO TRANSMISSIONS YET</p>';
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:0.7rem">// LOADING...</p>';
+    try {
+        const comments = await ApiComments.get(trackId);
+        list.innerHTML = comments.length
+            ? comments.map(c => `
+                <div class="comment">
+                    <div class="comment-meta">
+                        <span class="comment-user">${escHtml(c.username)}</span>
+                        <span class="comment-time">${escHtml(c.createdAt)}</span>
+                    </div>
+                    <p class="comment-text">${escHtml(c.content)}</p>
+                </div>`).join('')
+            : '<p style="color:var(--text-dim);font-size:0.7rem">// NO TRANSMISSIONS YET</p>';
+    } catch {
+        const comments = sampleComments[trackId] || [];
+        list.innerHTML = comments.length
+            ? comments.map(c => `
+                <div class="comment">
+                    <div class="comment-meta">
+                        <span class="comment-user">${escHtml(c.user)}</span>
+                        <span class="comment-time">${escHtml(c.time)}</span>
+                    </div>
+                    <p class="comment-text">${escHtml(c.text)}</p>
+                </div>`).join('')
+            : '<p style="color:var(--text-dim);font-size:0.7rem">// NO TRANSMISSIONS YET</p>';
+    }
 }
 
 function closeComments() {
     document.getElementById('commentsPanel').classList.remove('open');
 }
 
-function postComment() {
-    const userEl = document.getElementById('commentUser');
+async function postComment() {
     const textEl = document.getElementById('commentText');
-    const user   = userEl.value.trim() || 'ANON_' + Math.floor(Math.random() * 9999);
     const text   = textEl.value.trim();
     if (!text) return;
 
-    const id = activeCommentTrackId;
-    if (!sampleComments[id]) sampleComments[id] = [];
-    sampleComments[id].push({ user, time: new Date().toISOString().slice(0,16).replace('T',' '), text });
-    renderComments(id);
+    if (!Auth.isLoggedIn()) {
+        openAuthModal('login');
+        return;
+    }
 
-    userEl.value = '';
-    textEl.value = '';
-
-    const list = document.getElementById('commentsList');
-    list.scrollTop = list.scrollHeight;
+    try {
+        await ApiComments.post(activeCommentTrackId, text);
+        textEl.value = '';
+        loadComments(activeCommentTrackId);
+        const list = document.getElementById('commentsList');
+        list.scrollTop = list.scrollHeight;
+    } catch (err) {
+        alert(err.message);
+    }
 }
 
-// ─── SHARE ───────────────────────────────────────────────────
 let shareUrl = '';
 
 function handleShare(e, trackId) {
@@ -386,7 +564,95 @@ function copyShareLink() {
     });
 }
 
-// ─── UTIL ─────────────────────────────────────────────────────
+async function spotifySearch() {
+    const q = document.getElementById('spotifyQuery').value.trim();
+    if (!q) return;
+
+    if (!Auth.isLoggedIn()) { openAuthModal('login'); return; }
+    if (!SpotifyAuth.isConnected()) {
+        const grid = document.getElementById('spotifyResults');
+        grid.style.display = 'grid';
+        grid.innerHTML = '<div style="padding:1.5rem;color:var(--accent2);font-size:.75rem">// CONNECT SPOTIFY FIRST — click [ CONNECT SPOTIFY ] in the nav</div>';
+        return;
+    }
+
+    const grid = document.getElementById('spotifyResults');
+    grid.style.display = 'grid';
+    grid.innerHTML = '<div style="padding:1.5rem;color:var(--text-dim);font-size:.75rem">// SEARCHING...</div>';
+
+    try {
+        const data = await ApiSpotify.search(q);
+        const tracks = data?.tracks?.items || [];
+        if (!tracks.length) {
+            grid.innerHTML = '<div style="padding:1.5rem;color:var(--text-dim);font-size:.75rem">// NO RESULTS</div>';
+            return;
+        }
+        grid.innerHTML = tracks.map((t, i) => {
+            const artist = t.artists?.map(a => a.name).join(', ') || 'Unknown';
+            const album  = t.album?.name || '';
+            const dur    = formatTime(Math.floor((t.duration_ms || 0) / 1000));
+            const img    = t.album?.images?.[2]?.url || '';
+            return `
+            <div class="track-card" data-spotifyid="${escHtml(t.id)}" data-trackname="${escHtml(t.name)}" data-artist="${escHtml(artist)}">
+                <div class="track-num">${String(i + 1).padStart(2, '0')}</div>
+                ${img ? `<img src="${img}" style="width:40px;height:40px;margin-bottom:.5rem;opacity:.7">` : ''}
+                <div class="track-meta">
+                    <div class="track-title">${escHtml(t.name)}</div>
+                    <div class="track-album">${escHtml(artist)} — ${escHtml(album)}</div>
+                    <div class="track-duration">${dur}</div>
+                </div>
+                <div class="track-actions">
+                    <button class="act-btn" onclick="spotifyPlayTrackFromCard(this)">[ PLAY ]</button>
+                    <button class="act-btn" onclick="openRateModal('${escHtml(t.id)}','${escHtml(t.name)}','${escHtml(artist)}')">[ RATE ]</button>
+                    <button class="act-btn" onclick="handleComments(event,'${escHtml(t.id)}','${escHtml(t.name)}')">[ COMMENTS ]</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (err) {
+        const detail = err.data?.error?.message || err.data?.detail || '';
+        grid.innerHTML = `<div style="padding:1.5rem;color:var(--accent2);font-size:.75rem">// ERROR: ${escHtml(err.message)}${detail ? ' :: ' + escHtml(detail) : ''}</div>`;
+    }
+}
+
+let rateTarget = null;
+
+function openRateModal(spotifyId, trackName, artist) {
+    if (!Auth.isLoggedIn()) { openAuthModal('login'); return; }
+    rateTarget = { spotifyId, trackName, artist };
+    const modal = document.getElementById('rateModal');
+    const overlay = document.getElementById('rateOverlay');
+    if (!modal) return;
+    document.getElementById('rateTrackLabel').textContent = trackName;
+    document.getElementById('rateValue').value = '5';
+    document.getElementById('rateReview').value = '';
+    document.getElementById('rateError').textContent = '';
+    modal.classList.add('open');
+    overlay.classList.add('open');
+}
+
+function closeRateModal() {
+    document.getElementById('rateModal')?.classList.remove('open');
+    document.getElementById('rateOverlay')?.classList.remove('open');
+}
+
+async function submitRating() {
+    const rating = parseInt(document.getElementById('rateValue').value);
+    const review = document.getElementById('rateReview').value.trim() || null;
+    const errEl  = document.getElementById('rateError');
+    try {
+        await ApiRatings.create({
+            spotifyTrackId: rateTarget.spotifyId,
+            trackName: rateTarget.trackName,
+            artistName: rateTarget.artist,
+            rating,
+            review
+        });
+        closeRateModal();
+    } catch (err) {
+        errEl.textContent = err.message;
+    }
+}
+
 function escHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')

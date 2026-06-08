@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Keep-on-Rolling")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9d62fa0f367de054b47434217dd29d0212fa7c59")]
 [assembly: System.Reflection.AssemblyProductAttribute("Keep-on-Rolling")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Keep-on-Rolling")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

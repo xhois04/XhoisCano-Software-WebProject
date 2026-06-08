@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>@ViewData["Title"] - EPOKA TWINS </title>
+    <title>@ViewData["Title"] - MUSIC TWINS </title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true"/>
@@ -16,17 +16,24 @@
     <header>
         <nav class="ax-nav">
             <div class="nav-logo">
-                <span class="logo-glitch" data-text="EPOKA TWINS">EPOKA TWINS</span>
+                <span class="logo-glitch" data-text="MUSIC TWINS">MUSIC TWINS</span>
             </div>
             <ul class="nav-links">
                 <li><a asp-area="" asp-controller="Home" asp-action="Index" class="nav-link">_INDEX</a></li>
                 <li><a asp-area="" asp-controller="Home" asp-action="Privacy" class="nav-link">_PRIVACY</a></li>
-                <li><a href="#" class="nav-link">_ARCHIVE</a></li>
-                <li><a href="#" class="nav-link">_MERCH</a></li>
+                <li><a asp-area="" asp-controller="Friends" asp-action="Index" class="nav-link">_FRIENDS</a></li>
+                <li><a id="nav-profile-link" asp-area="" asp-controller="Profile" asp-action="Index" class="nav-link" style="display:none">_PROFILE</a></li>
+                <li><a id="nav-admin-link" asp-area="" asp-controller="Admin" asp-action="Index" class="nav-link" style="display:none">_ADMIN</a></li>
             </ul>
             <div class="nav-status">
+                <span id="nav-user-label" class="nav-user-label"></span>
                 <span class="status-dot"></span>
                 <span id="system-time">00:00:00</span>
+                <button id="nav-spotify-btn" class="ax-btn primary nav-auth-btn" style="display:none;color:#1db954;border-color:#1db954" onclick="connectSpotify()">[ CONNECT SPOTIFY ]</button>
+                <span id="nav-spotify-status" style="display:none;font-size:.65rem;color:#1db954;letter-spacing:.1em">SPOTIFY ●</span>
+                <button id="nav-login-btn" class="ax-btn primary nav-auth-btn" onclick="openAuthModal('login')">[ LOGIN ]</button>
+                <button id="nav-register-btn" class="ax-btn secondary nav-auth-btn" onclick="openAuthModal('register')">[ SIGN UP ]</button>
+                <button id="nav-logout-btn" class="ax-btn secondary nav-auth-btn" style="display:none" onclick="ApiAuth.logout()">[ LOGOUT ]</button>
             </div>
         </nav>
     </header>
@@ -37,11 +44,64 @@
 
     <footer class="ax-footer">
         <div class="footer-inner">
-            <span>&copy; 2026 EPOKA TWINS // ALL RIGHTS RESERVED</span>
+            <span>&copy; 2026 MUSIC TWINS // ALL RIGHTS RESERVED</span>
             <span class="footer-code">SYS:0x@ViewData["Title"]</span>
         </div>
     </footer>
 
+    <!-- AUTH MODAL -->
+    <div class="share-overlay" id="authOverlay" onclick="closeAuthModal()"></div>
+    <div class="share-modal" id="authModal" style="width:360px">
+        <div class="share-header">
+            <span id="authTitle">// LOGIN</span>
+            <button class="close-btn" onclick="closeAuthModal()">[ X ]</button>
+        </div>
+        <input type="hidden" id="authMode" value="login">
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+            <div class="form-label">USERNAME</div>
+            <input class="ax-input" id="authUsername" placeholder="user_id" autocomplete="username">
+            <div id="authEmailRow">
+                <div class="form-label">EMAIL</div>
+                <input class="ax-input" id="authEmail" placeholder="user@mail.com" autocomplete="email">
+            </div>
+            <div class="form-label">PASSWORD</div>
+            <div style="display:flex;gap:.5rem;align-items:center">
+                <input class="ax-input" id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" style="flex:1">
+                <button class="act-btn" type="button" id="togglePwBtn" onclick="togglePasswordVisibility()" title="Show/hide password" style="white-space:nowrap">[ SHOW ]</button>
+            </div>
+            <div id="authError" style="color:var(--accent2);font-size:.65rem;min-height:1rem"></div>
+            <button class="ax-btn primary" onclick="submitAuth()">[ TRANSMIT ]</button>
+            <button id="forgotPwBtn" class="ax-btn secondary" style="font-size:.65rem" onclick="openForgotPassword()">[ FORGOT PASSWORD ]</button>
+        </div>
+    </div>
+
+    <!-- FORGOT PASSWORD MODAL -->
+    <div class="share-overlay" id="forgotOverlay" onclick="closeForgotPassword()"></div>
+    <div class="share-modal" id="forgotModal" style="width:360px">
+        <div class="share-header">
+            <span>// FORGOT_PASSWORD</span>
+            <button class="close-btn" onclick="closeForgotPassword()">[ X ]</button>
+        </div>
+        <div id="forgotStep1">
+            <div class="form-label">EMAIL</div>
+            <input class="ax-input" id="forgotEmail" placeholder="user@mail.com" style="margin-bottom:.75rem">
+            <div id="forgotErr" style="color:var(--accent2);font-size:.65rem;min-height:1rem"></div>
+            <button class="ax-btn primary" onclick="submitForgot()">[ GET RESET TOKEN ]</button>
+        </div>
+        <div id="forgotStep2" style="display:none">
+            <div style="color:var(--accent);font-size:.7rem;margin-bottom:.75rem">// TOKEN GENERATED — paste it below</div>
+            <div class="form-label">RESET TOKEN</div>
+            <input class="ax-input" id="resetToken" placeholder="paste token here" style="margin-bottom:.5rem">
+            <div class="form-label">NEW PASSWORD</div>
+            <input class="ax-input" id="resetNewPw" type="password" placeholder="min 6 characters" style="margin-bottom:.75rem">
+            <div id="resetErr" style="color:var(--accent2);font-size:.65rem;min-height:1rem"></div>
+            <div id="resetOk" style="color:var(--accent);font-size:.65rem;min-height:1rem"></div>
+            <button class="ax-btn primary" onclick="submitReset()">[ RESET PASSWORD ]</button>
+        </div>
+    </div>
+
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="~/js/api.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

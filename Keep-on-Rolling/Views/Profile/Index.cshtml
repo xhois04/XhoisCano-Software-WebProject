@@ -1,0 +1,98 @@
+@{
+    ViewData["Title"] = "PROFILE";
+}
+
+<section class="tracks-section">
+    <div class="section-header">
+        <h2 class="section-title">// PROFILE</h2>
+    </div>
+    <div id="profileContent"></div>
+</section>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!Auth.isLoggedIn()) {
+        document.getElementById('profileContent').innerHTML =
+            '<p style="color:var(--text-dim);padding:2rem">// LOGIN REQUIRED — <button class="ax-btn primary" onclick="openAuthModal(\'login\')">[ LOGIN ]</button></p>';
+        return;
+    }
+    await loadProfile();
+    await loadMyRatings();
+});
+
+async function loadProfile() {
+    try {
+        const u = await ApiUsers.me();
+        document.getElementById('profileContent').innerHTML = `
+            <div style="max-width:480px;margin-bottom:2rem">
+                <div class="section-header"><h2 class="section-title">// INFO</h2></div>
+                <div style="font-size:.75rem;margin-bottom:1.5rem;line-height:2">
+                    <div><span style="color:var(--accent)">USER: </span>${escHtml(u.username)}</div>
+                    <div><span style="color:var(--accent)">EMAIL: </span>${escHtml(u.email)}</div>
+                    <div><span style="color:var(--accent)">ROLE: </span>${escHtml(u.role)}</div>
+                    <div><span style="color:var(--accent)">JOINED: </span>${u.createdAt?.slice(0,10)}</div>
+                </div>
+
+                <div class="section-header"><h2 class="section-title">// EDIT_PROFILE</h2></div>
+                <div style="display:flex;flex-direction:column;gap:.75rem;font-size:.75rem">
+                    <div class="form-label">USERNAME</div>
+                    <input class="ax-input" id="editUsername" value="${escHtml(u.username)}">
+                    <div class="form-label">EMAIL</div>
+                    <input class="ax-input" id="editEmail" value="${escHtml(u.email)}">
+                    <div id="editProfileErr" style="color:var(--accent2);font-size:.65rem;min-height:1rem"></div>
+                    <button class="ax-btn primary" onclick="saveProfile()">[ SAVE PROFILE ]</button>
+                </div>
+            </div>
+
+            <div class="section-header"><h2 class="section-title">// MY_RATINGS</h2></div>
+            <div id="myRatingsList"></div>
+        `;
+    } catch (err) {
+        document.getElementById('profileContent').innerHTML =
+            `<p style="color:var(--accent2)">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function loadMyRatings() {
+    const el = document.getElementById('myRatingsList');
+    if (!el) return;
+    try {
+        const ratings = await ApiRatings.getMy();
+        el.innerHTML = ratings.length
+            ? '<div class="tracks-grid">' + ratings.map(r => `
+                <div class="track-card">
+                    <div class="track-title">${escHtml(r.trackName)}</div>
+                    <div class="track-album">${escHtml(r.artistName)}</div>
+                    <div style="color:var(--accent);font-size:.7rem;margin:.25rem 0">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.rating}/5</div>
+                    ${r.review ? `<div style="color:var(--text-dim);font-size:.65rem;font-style:italic">"${escHtml(r.review)}"</div>` : ''}
+                    <div style="color:var(--text-dim);font-size:.6rem;margin-top:.5rem">${r.createdAt?.slice(0,10)}</div>
+                </div>`).join('') + '</div>'
+            : '<p style="color:var(--text-dim);font-size:.75rem">// NO RATINGS YET</p>';
+    } catch (err) {
+        if (el) el.innerHTML = '';
+    }
+}
+
+async function saveProfile() {
+    const username = document.getElementById('editUsername').value.trim();
+    const email    = document.getElementById('editEmail').value.trim();
+    const errEl    = document.getElementById('editProfileErr');
+    try {
+        const u = await ApiUsers.updateMe({ username, email });
+        errEl.style.color = 'var(--accent)';
+        errEl.textContent = '// PROFILE UPDATED';
+        const stored = Auth.getUser();
+        if (stored) {
+            stored.username = u.username;
+            localStorage.setItem('ax_user', JSON.stringify(stored));
+            updateNavAuth();
+        }
+    } catch (err) {
+        errEl.style.color = 'var(--accent2)';
+        errEl.textContent = err.message;
+    }
+}
+
+</script>
+}

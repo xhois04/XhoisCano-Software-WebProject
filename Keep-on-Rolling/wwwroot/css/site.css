@@ -193,6 +193,17 @@ body {
     font-size: 0.75rem;
 }
 
+.nav-user-label {
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+}
+
+.nav-auth-btn {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.6rem;
+}
+
 .status-dot {
     width: 6px;
     height: 6px;

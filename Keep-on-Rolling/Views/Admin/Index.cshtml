@@ -1,0 +1,179 @@
+@{
+    ViewData["Title"] = "ADMIN";
+}
+
+<section class="tracks-section">
+    <div class="section-header">
+        <h2 class="section-title">// ADMIN_PANEL</h2>
+        <div class="section-controls">
+            <button class="filter-btn active" onclick="showTab('users', this)">USERS</button>
+            <button class="filter-btn" onclick="showTab('ratings', this)">RATINGS</button>
+            <button class="filter-btn" onclick="showTab('comments', this)">COMMENTS</button>
+        </div>
+    </div>
+    <div id="adminContent">
+        <div id="tab-users"></div>
+        <div id="tab-ratings" style="display:none"></div>
+        <div id="tab-comments" style="display:none"></div>
+    </div>
+</section>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (!Auth.isAdmin()) {
+        document.getElementById('adminContent').innerHTML =
+            '<p style="color:var(--accent2);padding:2rem">// ACCESS DENIED</p>';
+        return;
+    }
+    loadUsers();
+    loadAllRatings();
+    loadAllComments();
+});
+
+function showTab(name, btn) {
+    document.getElementById('tab-users').style.display    = name === 'users'    ? '' : 'none';
+    document.getElementById('tab-ratings').style.display  = name === 'ratings'  ? '' : 'none';
+    document.getElementById('tab-comments').style.display = name === 'comments' ? '' : 'none';
+    document.querySelectorAll('.section-controls .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+async function loadUsers() {
+    const el = document.getElementById('tab-users');
+    try {
+        const users = await ApiAdmin.users();
+        el.innerHTML = `
+            <table style="width:100%;border-collapse:collapse;font-size:.75rem">
+                <thead>
+                    <tr style="color:var(--accent);border-bottom:1px solid var(--border)">
+                        <th style="text-align:left;padding:.5rem">ID</th>
+                        <th style="text-align:left;padding:.5rem">USERNAME</th>
+                        <th style="text-align:left;padding:.5rem">EMAIL</th>
+                        <th style="text-align:left;padding:.5rem">ROLE</th>
+                        <th style="text-align:left;padding:.5rem">STATUS</th>
+                        <th style="text-align:left;padding:.5rem">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${users.map(u => `
+                    <tr id="user-row-${u.id}" style="border-bottom:1px solid var(--border)">
+                        <td style="padding:.5rem;color:var(--text-dim)">${u.id}</td>
+                        <td style="padding:.5rem">${escHtml(u.username)}</td>
+                        <td style="padding:.5rem;color:var(--text-dim)">${escHtml(u.email)}</td>
+                        <td style="padding:.5rem;color:var(--accent)">${escHtml(u.role)}</td>
+                        <td style="padding:.5rem;color:${u.isBanned ? 'var(--accent2)' : 'var(--accent)'}">
+                            ${u.isBanned ? 'BANNED' : 'ACTIVE'}
+                        </td>
+                        <td style="padding:.5rem;display:flex;gap:.25rem;flex-wrap:wrap">
+                            ${u.isBanned
+                                ? `<button class="act-btn" onclick="adminAction('unban',${u.id})">[ UNBAN ]</button>`
+                                : `<button class="act-btn" onclick="adminAction('ban',${u.id})">[ BAN ]</button>`}
+                            ${u.role === 'ADMIN'
+                                ? `<button class="act-btn" onclick="adminAction('demote',${u.id})" style="color:var(--accent2)">[ DEMOTE ]</button>`
+                                : `<button class="act-btn" onclick="adminAction('promote',${u.id})" style="color:#1db954">[ PROMOTE ]</button>`}
+                            <button class="act-btn" onclick="adminAction('deleteUser',${u.id})" style="color:var(--accent2)">[ DELETE ]</button>
+                        </td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+    } catch (err) {
+        el.innerHTML = `<p style="color:var(--accent2)">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function loadAllRatings() {
+    const el = document.getElementById('tab-ratings');
+    try {
+        const ratings = await ApiAdmin.allRatings();
+        el.innerHTML = ratings.length
+            ? `<table style="width:100%;border-collapse:collapse;font-size:.75rem">
+                <thead>
+                    <tr style="color:var(--accent);border-bottom:1px solid var(--border)">
+                        <th style="text-align:left;padding:.5rem">USER</th>
+                        <th style="text-align:left;padding:.5rem">TRACK</th>
+                        <th style="text-align:left;padding:.5rem">ARTIST</th>
+                        <th style="text-align:left;padding:.5rem">RATING</th>
+                        <th style="text-align:left;padding:.5rem">REVIEW</th>
+                        <th style="text-align:left;padding:.5rem">DATE</th>
+                        <th style="text-align:left;padding:.5rem">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${ratings.map(r => `
+                    <tr id="rating-row-${r.id}" style="border-bottom:1px solid var(--border)">
+                        <td style="padding:.5rem;color:var(--accent)">${escHtml(r.username)}</td>
+                        <td style="padding:.5rem">${escHtml(r.trackName)}</td>
+                        <td style="padding:.5rem;color:var(--text-dim)">${escHtml(r.artistName)}</td>
+                        <td style="padding:.5rem;color:var(--accent)">${r.rating}/5</td>
+                        <td style="padding:.5rem;color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.review ? escHtml(r.review) : '—'}</td>
+                        <td style="padding:.5rem;color:var(--text-dim)">${r.createdAt?.slice(0,10)}</td>
+                        <td style="padding:.5rem">
+                            <button class="act-btn" onclick="deleteRating(${r.id})" style="color:var(--accent2)">[ DELETE ]</button>
+                        </td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`
+            : '<p style="color:var(--text-dim);font-size:.75rem;padding:1rem">// NO RATINGS YET</p>';
+    } catch (err) {
+        el.innerHTML = `<p style="color:var(--accent2)">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function adminAction(action, id) {
+    if (action === 'deleteUser' && !confirm('Delete this user and all their data?')) return;
+    try {
+        await ApiAdmin[action](id);
+        loadUsers();
+    } catch (err) { alert(err.message); }
+}
+
+async function deleteRating(id) {
+    try {
+        await ApiAdmin.deleteReview(id);
+        document.getElementById(`rating-row-${id}`)?.remove();
+    } catch (err) { alert(err.message); }
+}
+
+async function loadAllComments() {
+    const el = document.getElementById('tab-comments');
+    try {
+        const comments = await ApiAdmin.allComments();
+        el.innerHTML = comments.length
+            ? `<table style="width:100%;border-collapse:collapse;font-size:.75rem">
+                <thead>
+                    <tr style="color:var(--accent);border-bottom:1px solid var(--border)">
+                        <th style="text-align:left;padding:.5rem">USER</th>
+                        <th style="text-align:left;padding:.5rem">TRACK ID</th>
+                        <th style="text-align:left;padding:.5rem">COMMENT</th>
+                        <th style="text-align:left;padding:.5rem">DATE</th>
+                        <th style="text-align:left;padding:.5rem">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${comments.map(c => `
+                    <tr id="comment-row-${c.id}" style="border-bottom:1px solid var(--border)">
+                        <td style="padding:.5rem;color:var(--accent)">${escHtml(c.username)}</td>
+                        <td style="padding:.5rem;color:var(--text-dim);font-size:.65rem">${escHtml(c.spotifyTrackId)}</td>
+                        <td style="padding:.5rem;max-width:300px;overflow:hidden;text-overflow:ellipsis">${escHtml(c.content)}</td>
+                        <td style="padding:.5rem;color:var(--text-dim)">${c.createdAt?.slice(0,10)}</td>
+                        <td style="padding:.5rem">
+                            <button class="act-btn" onclick="deleteComment(${c.id})" style="color:var(--accent2)">[ DELETE ]</button>
+                        </td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`
+            : '<p style="color:var(--text-dim);font-size:.75rem;padding:1rem">// NO COMMENTS YET</p>';
+    } catch (err) {
+        el.innerHTML = `<p style="color:var(--accent2)">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function deleteComment(id) {
+    try {
+        await ApiAdmin.deleteComment(id);
+        document.getElementById(`comment-row-${id}`)?.remove();
+    } catch (err) { alert(err.message); }
+}
+</script>
+}

@@ -1,0 +1,153 @@
+@{
+    ViewData["Title"] = "FRIENDS";
+}
+
+<section class="tracks-section">
+    <div class="section-header">
+        <h2 class="section-title">// FRIENDS</h2>
+    </div>
+
+    <div style="display:flex;gap:.75rem;margin-bottom:1.5rem">
+        <input class="ax-input" id="userSearchQ" placeholder="search users..." style="flex:1" onkeydown="if(event.key==='Enter')searchUsers()">
+        <button class="ax-btn primary" onclick="searchUsers()">[ SEARCH ]</button>
+    </div>
+    <div id="userSearchResults" style="margin-bottom:2rem"></div>
+
+    <div class="section-header">
+        <h2 class="section-title">// MY_FRIENDS</h2>
+    </div>
+    <div id="friendsList" class="tracks-grid"></div>
+
+    <div class="section-header" style="margin-top:2rem">
+        <h2 class="section-title">// FRIEND_ACTIVITY</h2>
+    </div>
+    <div id="friendActivity"></div>
+</section>
+
+<!-- Friend Ratings Panel -->
+<div class="comments-panel" id="friendRatingsPanel">
+    <div class="comments-header">
+        <span id="friendRatingsTitle">// RATINGS</span>
+        <button class="close-btn" onclick="document.getElementById('friendRatingsPanel').classList.remove('open')">[ X ]</button>
+    </div>
+    <div class="comments-list" id="friendRatingsList"></div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (!Auth.isLoggedIn()) {
+        document.querySelector('.tracks-section').innerHTML =
+            '<p style="color:var(--text-dim);padding:2rem">// LOGIN REQUIRED — <button class="ax-btn primary" onclick="openAuthModal(\'login\')">[ LOGIN ]</button></p>';
+        return;
+    }
+    loadFriends();
+    loadActivity();
+});
+
+async function loadFriends() {
+    const el = document.getElementById('friendsList');
+    try {
+        const friends = await ApiFriends.list();
+        el.innerHTML = friends.length
+            ? friends.map(f => `
+                <div class="track-card">
+                    <div class="track-title">${escHtml(f.username)}</div>
+                    <div class="track-actions">
+                        <button class="act-btn" onclick="viewFriendRatings(${f.id}, '${escHtml(f.username)}')">[ RATINGS ]</button>
+                        <button class="act-btn" onclick="removeFriend(${f.id}, this)">[ REMOVE ]</button>
+                    </div>
+                </div>`).join('')
+            : '<div style="padding:1.5rem;color:var(--text-dim);font-size:.75rem">// NO FRIENDS YET</div>';
+    } catch (err) {
+        el.innerHTML = `<div style="color:var(--accent2);padding:1rem">${escHtml(err.message)}</div>`;
+    }
+}
+
+async function loadActivity() {
+    const el = document.getElementById('friendActivity');
+    try {
+        const items = await ApiFriends.activity();
+        el.innerHTML = items.length
+            ? items.map(r => `
+                <div class="comment" style="margin-bottom:1rem">
+                    <div class="comment-meta">
+                        <span class="comment-user">${escHtml(r.username)}</span>
+                        <span class="comment-time">${escHtml(r.createdAt?.slice(0,16).replace('T',' '))}</span>
+                    </div>
+                    <p class="comment-text">Rated <strong>${escHtml(r.trackName)}</strong> by ${escHtml(r.artistName)} — ${r.rating}/5
+                    ${r.review ? `<br><em>"${escHtml(r.review)}"</em>` : ''}</p>
+                </div>`).join('')
+            : '<p style="color:var(--text-dim);font-size:.75rem">// NO ACTIVITY YET</p>';
+    } catch (err) {
+        el.innerHTML = '';
+    }
+}
+
+async function searchUsers() {
+    const q = document.getElementById('userSearchQ').value.trim();
+    if (!q) return;
+    const el = document.getElementById('userSearchResults');
+    try {
+        const users = await ApiUsers.search(q);
+        el.innerHTML = users.length
+            ? '<div class="tracks-grid">' + users.map(u => `
+                <div class="track-card">
+                    <div class="track-title">${escHtml(u.username)}</div>
+                    <div class="track-actions">
+                        ${u.isFriend
+                            ? `<button class="act-btn" onclick="removeFriend(${u.id},this)">[ REMOVE FRIEND ]</button>`
+                            : `<button class="act-btn" onclick="addFriend(${u.id},this)">[ ADD FRIEND ]</button>`}
+                    </div>
+                </div>`).join('') + '</div>'
+            : '<p style="color:var(--text-dim);font-size:.75rem;padding:.5rem">// NO USERS FOUND</p>';
+    } catch (err) {
+        el.innerHTML = `<p style="color:var(--accent2)">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function addFriend(id, btn) {
+    try {
+        await ApiFriends.add(id);
+        btn.textContent = '[ REMOVE FRIEND ]';
+        btn.onclick = () => removeFriend(id, btn);
+        loadFriends();
+    } catch (err) { alert(err.message); }
+}
+
+async function viewFriendRatings(userId, username) {
+    document.getElementById('friendRatingsTitle').textContent = `// ${username.toUpperCase()}_RATINGS`;
+    const list = document.getElementById('friendRatingsList');
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:.7rem;padding:1rem">// LOADING...</p>';
+    document.getElementById('friendRatingsPanel').classList.add('open');
+    try {
+        const ratings = await ApiRatings.getByUser(userId);
+        list.innerHTML = ratings.length
+            ? ratings.map(r => `
+                <div class="comment">
+                    <div class="comment-meta">
+                        <span class="comment-user">${escHtml(r.trackName)}</span>
+                        <span class="comment-time">${r.createdAt?.slice(0,10)}</span>
+                    </div>
+                    <p class="comment-text">
+                        ${escHtml(r.artistName)}<br>
+                        <span style="color:var(--accent)">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)} ${r.rating}/5</span>
+                        ${r.review ? `<br><em>"${escHtml(r.review)}"</em>` : ''}
+                    </p>
+                </div>`).join('')
+            : '<p style="color:var(--text-dim);font-size:.75rem;padding:1rem">// NO RATINGS YET</p>';
+    } catch (err) {
+        list.innerHTML = `<p style="color:var(--accent2);padding:1rem">${escHtml(err.message)}</p>`;
+    }
+}
+
+async function removeFriend(id, btn) {
+    try {
+        await ApiFriends.remove(id);
+        btn.textContent = '[ ADD FRIEND ]';
+        btn.onclick = () => addFriend(id, btn);
+        loadFriends();
+    } catch (err) { alert(err.message); }
+}
+</script>
+}
