@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>@ViewData["Title"] - EPOKA TWINS </title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true"/>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+    <div id="metaBg" class="meta-bg" aria-hidden="true"></div>
+
+    <header>
+        <nav class="ax-nav">
+            <div class="nav-logo">
+                <span class="logo-glitch" data-text="EPOKA TWINS">EPOKA TWINS</span>
+            </div>
+            <ul class="nav-links">
+                <li><a asp-area="" asp-controller="Home" asp-action="Index" class="nav-link">_INDEX</a></li>
+                <li><a asp-area="" asp-controller="Home" asp-action="Privacy" class="nav-link">_PRIVACY</a></li>
+                <li><a href="#" class="nav-link">_ARCHIVE</a></li>
+                <li><a href="#" class="nav-link">_MERCH</a></li>
+            </ul>
+            <div class="nav-status">
+                <span class="status-dot"></span>
+                <span id="system-time">00:00:00</span>
+            </div>
+        </nav>
+    </header>
+
+    <main class="ax-main">
+        @RenderBody()
+    </main>
+
+    <footer class="ax-footer">
+        <div class="footer-inner">
+            <span>&copy; 2026 EPOKA TWINS // ALL RIGHTS RESERVED</span>
+            <span class="footer-code">SYS:0x@ViewData["Title"]</span>
+        </div>
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

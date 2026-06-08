@@ -1,0 +1,210 @@
+@{
+    ViewData["Title"] = "INDEX";
+}
+
+<section class="hero">
+    <canvas id="waveCanvas"></canvas>
+    <div class="hero-content">
+        <div class="hero-tag">// TRANSMISSION_ACTIVE</div>
+        <h1 class="hero-title" data-text="SELECTED AMBIENT WORKS">SELECTED AMBIENT WORKS</h1>
+        <p class="hero-sub">WARP RECORDS // EST. 1989 // CORNWALL, UK</p>
+        <div class="hero-actions">
+            <button class="ax-btn primary" onclick="playAll()">[ PLAY ALL ]</button>
+            <button class="ax-btn secondary" onclick="shuffleTracks()">[ SHUFFLE ]</button>
+        </div>
+    </div>
+</section>
+
+<!-- PLAYER BAR -->
+<div class="player-bar" id="playerBar">
+    <div class="player-track-info">
+        <div class="player-track-name" id="playerTrackName">NO TRACK LOADED</div>
+        <div class="player-track-artist" id="playerTrackArtist">_ _ _</div>
+    </div>
+    <div class="player-controls">
+        <button class="ctrl-btn" onclick="prevTrack()">&#9664;&#9664;</button>
+        <button class="ctrl-btn play-pause" id="playPauseBtn" onclick="togglePlay()">&#9654;</button>
+        <button class="ctrl-btn" onclick="nextTrack()">&#9654;&#9654;</button>
+    </div>
+    <div class="player-progress">
+        <span class="time-label" id="currentTime">0:00</span>
+        <div class="progress-bar-wrap" id="progressWrap" onclick="seekTo(event)">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="time-label" id="totalTime">0:00</span>
+    </div>
+    <div class="player-volume">
+        <span class="vol-icon">VOL</span>
+        <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
+    </div>
+</div>
+
+<!-- TRACK GRID -->
+<section class="tracks-section">
+    <div class="section-header">
+        <h2 class="section-title">// TRACK_LIST</h2>
+        <div class="section-controls">
+            <button class="filter-btn active" data-filter="all">ALL</button>
+            <button class="filter-btn" data-filter="ambient">AMBIENT</button>
+            <button class="filter-btn" data-filter="acid">ACID</button>
+            <button class="filter-btn" data-filter="drill">DRILL</button>
+        </div>
+    </div>
+
+    <div class="tracks-grid" id="tracksGrid">
+
+        <div class="track-card" data-id="1" data-genre="ambient" data-title="Xtal" data-album="Selected Ambient Works 85-92" data-duration="4:54">
+            <div class="track-num">01</div>
+            <div class="track-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="track-meta">
+                <div class="track-title">Xtal</div>
+                <div class="track-album">Selected Ambient Works 85-92</div>
+                <div class="track-duration">4:54</div>
+            </div>
+            <div class="track-tags">
+                <span class="tag">AMBIENT</span><span class="tag">IDM</span>
+            </div>
+            <div class="track-actions">
+                <button class="act-btn" onclick="handlePlay(event, this)">[ PLAY ]</button>
+                <button class="act-btn" onclick="handleShare(event, 1)">[ SHARE ]</button>
+                <button class="act-btn" onclick="handleComments(event, 1, 'Xtal')">[ COMMENTS ]</button>
+            </div>
+        </div>
+
+        <div class="track-card" data-id="2" data-genre="acid" data-title="Ageispolis" data-album="Selected Ambient Works 85-92" data-duration="5:21">
+            <div class="track-num">02</div>
+            <div class="track-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="track-meta">
+                <div class="track-title">Ageispolis</div>
+                <div class="track-album">Selected Ambient Works 85-92</div>
+                <div class="track-duration">5:21</div>
+            </div>
+            <div class="track-tags">
+                <span class="tag">ACID</span><span class="tag">ELECTRONIC</span>
+            </div>
+            <div class="track-actions">
+                <button class="act-btn" onclick="handlePlay(event, this)">[ PLAY ]</button>
+                <button class="act-btn" onclick="handleShare(event, 2)">[ SHARE ]</button>
+                <button class="act-btn" onclick="handleComments(event, 2, 'Ageispolis')">[ COMMENTS ]</button>
+            </div>
+        </div>
+
+        <div class="track-card" data-id="3" data-genre="drill" data-title="Windowlicker" data-album="Windowlicker EP" data-duration="6:00">
+            <div class="track-num">03</div>
+            <div class="track-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="track-meta">
+                <div class="track-title">Windowlicker</div>
+                <div class="track-album">Windowlicker EP</div>
+                <div class="track-duration">6:00</div>
+            </div>
+            <div class="track-tags">
+                <span class="tag">DRILL</span><span class="tag">IDM</span>
+            </div>
+            <div class="track-actions">
+                <button class="act-btn" onclick="handlePlay(event, this)">[ PLAY ]</button>
+                <button class="act-btn" onclick="handleShare(event, 3)">[ SHARE ]</button>
+                <button class="act-btn" onclick="handleComments(event, 3, 'Windowlicker')">[ COMMENTS ]</button>
+            </div>
+        </div>
+
+        <div class="track-card" data-id="4" data-genre="ambient" data-title="Flim" data-album="Come to Daddy EP" data-duration="3:01">
+            <div class="track-num">04</div>
+            <div class="track-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="track-meta">
+                <div class="track-title">Flim</div>
+                <div class="track-album">Come to Daddy EP</div>
+                <div class="track-duration">3:01</div>
+            </div>
+            <div class="track-tags">
+                <span class="tag">AMBIENT</span><span class="tag">JAZZ</span>
+            </div>
+            <div class="track-actions">
+                <button class="act-btn" onclick="handlePlay(event, this)">[ PLAY ]</button>
+                <button class="act-btn" onclick="handleShare(event, 4)">[ SHARE ]</button>
+                <button class="act-btn" onclick="handleComments(event, 4, 'Flim')">[ COMMENTS ]</button>
+            </div>
+        </div>
+
+        <div class="track-card" data-id="5" data-genre="acid" data-title="Come to Daddy" data-album="Come to Daddy EP" data-duration="5:26">
+            <div class="track-num">05</div>
+            <div class="track-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="track-meta">
+                <div class="track-title">Come to Daddy</div>
+                <div class="track-album">Come to Daddy EP</div>
+                <div class="track-duration">5:26</div>
+            </div>
+            <div class="track-tags">
+                <span class="tag">ACID</span><span class="tag">NOISE</span>
+            </div>
+            <div class="track-actions">
+                <button class="act-btn" onclick="handlePlay(event, this)">[ PLAY ]</button>
+                <button class="act-btn" onclick="handleShare(event, 5)">[ SHARE ]</button>
+                <button class="act-btn" onclick="handleComments(event, 5, 'Come to Daddy')">[ COMMENTS ]</button>
+            </div>
+        </div>
+
+        <div class="track-card" data-id="6" data-genre="drill" data-title="Bucephalus Bouncing Ball" data-album="Come to Daddy EP" data-duration="5:15">
+            <div class="track-num">06</div>
+            <div class="track-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="track-meta">
+                <div class="track-title">Bucephalus Bouncing Ball</div>
+                <div class="track-album">Come to Daddy EP</div>
+                <div class="track-duration">5:15</div>
+            </div>
+            <div class="track-tags">
+                <span class="tag">DRILL</span><span class="tag">PERCUSSION</span>
+            </div>
+            <div class="track-actions">
+                <button class="act-btn" onclick="handlePlay(event, this)">[ PLAY ]</button>
+                <button class="act-btn" onclick="handleShare(event, 6)">[ SHARE ]</button>
+                <button class="act-btn" onclick="handleComments(event, 6, 'Bucephalus Bouncing Ball')">[ COMMENTS ]</button>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- COMMENTS PANEL -->
+<div class="comments-panel" id="commentsPanel">
+    <div class="comments-header">
+        <span id="commentsTitle">// COMMENTS</span>
+        <button class="close-btn" onclick="closeComments()">[ X ]</button>
+    </div>
+    <div class="comments-list" id="commentsList">
+        <div class="comment">
+            <div class="comment-meta">
+                <span class="comment-user">USER_4412</span>
+                <span class="comment-time">2026-05-22 03:17</span>
+            </div>
+            <p class="comment-text">this one hits different at 3am. classic energy.</p>
+        </div>
+        <div class="comment">
+            <div class="comment-meta">
+                <span class="comment-user">RDTN_77</span>
+                <span class="comment-time">2026-05-23 18:44</span>
+            </div>
+            <p class="comment-text">the acid line at 2:30 is unreal. studied this for years.</p>
+        </div>
+    </div>
+    <div class="comment-form">
+        <div class="form-label">// POST_TRANSMISSION</div>
+        <input type="text" class="ax-input" id="commentUser" placeholder="USER_ID (optional)">
+        <textarea class="ax-input ax-textarea" id="commentText" placeholder="// enter transmission..."></textarea>
+        <button class="ax-btn primary" onclick="postComment()">[ TRANSMIT ]</button>
+    </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div class="share-overlay" id="shareOverlay" onclick="closeShare()"></div>
+<div class="share-modal" id="shareModal">
+    <div class="share-header">
+        <span>// SHARE_LINK</span>
+        <button class="close-btn" onclick="closeShare()">[ X ]</button>
+    </div>
+    <div class="share-url" id="shareUrl"></div>
+    <div class="share-btns">
+        <button class="ax-btn primary" onclick="copyShareLink()">[ COPY LINK ]</button>
+        <button class="ax-btn secondary" onclick="closeShare()">[ DISMISS ]</button>
+    </div>
+    <div class="share-copied" id="shareCopied">// COPIED TO CLIPBOARD</div>
+</div>
